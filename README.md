@@ -86,6 +86,7 @@ draft -> modeled -> pending_supervisor_review -> approved_for_training -> archiv
 | `GET` | `/api/v1/divers/:id/plans` | 档案关联方案 |
 | `GET/POST` | `/api/v1/plans` | 方案列表与创建 |
 | `GET/POST/PUT` | `/api/v1/plans/:id/segments`、`/segments/:id` | 暴露段列表、创建、更新 |
+| `POST` | `/api/v1/plans/:id/segments/insert` | 事务化插入新段并顺延后续序号 |
 | `PUT` | `/api/v1/plans/:id/segments/order` | 事务化重排并推进输入版本 |
 | `POST` | `/api/v1/plans/:id/assessments/run` | 校验并创建不可覆盖评估 |
 | `GET` | `/api/v1/assessments`、`/assessments/:id` | 结果列表与重放数据 |
@@ -94,7 +95,7 @@ draft -> modeled -> pending_supervisor_review -> approved_for_training -> archiv
 | `POST` | `/api/v1/assessments/:id/approve` | 主管人工批准训练用途 |
 | `GET` | `/api/v1/audit-events` | 主管/管理员读取不可删除审计轨迹 |
 
-统一响应包含 `data` 或 `error` 及 `request_id`。主要错误码包括 `INVALID_GAS_MIX`、`SEGMENT_SEQUENCE_CONFLICT`、`MODEL_INPUT_INVALID`、`PLAN_VERSION_CONFLICT`、`INVALID_PLAN_TRANSITION`、`AUTH_REQUIRED` 和 `FORBIDDEN`。
+统一响应包含 `data` 或 `error` 及 `request_id`。主要错误码包括 `INVALID_GAS_MIX`、`SEGMENT_SEQUENCE_CONFLICT`、`SEGMENT_INSERT_POSITION_INVALID`、`MODEL_INPUT_INVALID`、`PLAN_VERSION_CONFLICT`、`INVALID_PLAN_TRANSITION`、`AUTH_REQUIRED` 和 `FORBIDDEN`。
 
 ## 技术栈与目录
 

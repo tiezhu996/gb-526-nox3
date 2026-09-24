@@ -86,6 +86,43 @@ func (r *ExposureSegmentRepository) Create(ctx context.Context, item *model.Expo
 	return nil
 }
 
+func (r *ExposureSegmentRepository) Insert(ctx context.Context, item *model.ExposureSegment, planVersion uint, entry audit.Entry) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		plan, err := requireDraftPlan(tx, item.PlanID, planVersion)
+		if err != nil {
+			return err
+		}
+		var count int64
+		if err := tx.Model(&model.ExposureSegment{}).Where("plan_id = ?", item.PlanID).Count(&count).Error; err != nil {
+			return fmt.Errorf("count exposure segments: %w", err)
+		}
+		if item.SequenceNo < 1 || int64(item.SequenceNo) > count+1 {
+			return util.Unprocessable("SEGMENT_INSERT_POSITION_INVALID", fmt.Sprintf("insert position must be between 1 and %d for this plan", count+1), nil)
+		}
+		if err := tx.Model(&model.ExposureSegment{}).Where("plan_id = ? AND sequence_no >= ?", item.PlanID, item.SequenceNo).Update("sequence_no", gorm.Expr("-(sequence_no + 1)")).Error; err != nil {
+			return fmt.Errorf("stage segment insert shift: %w", err)
+		}
+		if err := tx.Model(&model.ExposureSegment{}).Where("plan_id = ? AND sequence_no < 0", item.PlanID).Update("sequence_no", gorm.Expr("-sequence_no")).Error; err != nil {
+			return fmt.Errorf("finish segment insert shift: %w", err)
+		}
+		if err := tx.Create(item).Error; err != nil {
+			if errors.Is(err, gorm.ErrDuplicatedKey) {
+				return util.Conflict("SEGMENT_SEQUENCE_CONFLICT", "sequence_no already exists for this plan", err)
+			}
+			return fmt.Errorf("create exposure segment: %w", err)
+		}
+		if err := bumpPlanVersion(tx, plan); err != nil {
+			return err
+		}
+		entry.EntityID = item.ID
+		return r.audit.RecordWithDB(ctx, tx, entry)
+	})
+	if err != nil {
+		return fmt.Errorf("insert exposure segment transaction: %w", err)
+	}
+	return nil
+}
+
 func (r *ExposureSegmentRepository) Update(ctx context.Context, current model.ExposureSegment, planVersion uint, changes map[string]any, entry audit.Entry) error {
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		plan, err := requireDraftPlan(tx, current.PlanID, planVersion)

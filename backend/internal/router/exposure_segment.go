@@ -8,6 +8,7 @@ import (
 func RegisterExposureSegmentRoutes(api *gin.RouterGroup, h *handler.ExposureSegmentHandler, write gin.HandlerFunc) {
 	api.GET("/plans/:id/segments", h.ListByPlan)
 	api.POST("/plans/:id/segments", write, h.Create)
+	api.POST("/plans/:id/segments/insert", write, h.Insert)
 	api.PUT("/plans/:id/segments/order", write, h.Reorder)
 	segments := api.Group("/segments")
 	segments.GET("/:id", h.Get)

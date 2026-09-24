@@ -75,6 +75,31 @@ func (s *ExposureSegmentService) Create(ctx context.Context, planID uint, req dt
 	return dto.NewExposureSegmentResponse(item)
 }
 
+func (s *ExposureSegmentService) Insert(ctx context.Context, planID uint, req dto.CreateExposureSegmentRequest, actor audit.Entry) ([]dto.ExposureSegmentResponse, error) {
+	if err := req.ValidateBusiness(); err != nil {
+		return nil, util.Unprocessable("INVALID_SEGMENT", err.Error(), err)
+	}
+	current, err := s.segments.ListByPlan(ctx, planID)
+	if err != nil {
+		return nil, err
+	}
+	if len(current) >= s.max {
+		return nil, util.Unprocessable("SEGMENT_LIMIT", fmt.Sprintf("plan cannot exceed %d segments", s.max), nil)
+	}
+	mixJSON, err := decompression.EncodeGasMix(req.GasMix)
+	if err != nil {
+		return nil, util.Unprocessable("INVALID_GAS_MIX", err.Error(), err)
+	}
+	item := model.ExposureSegment{PlanID: planID, SequenceNo: req.SequenceNo, DepthM: req.DepthM, DurationMin: req.DurationMin, AscentRateMMin: req.AscentRateMMin, GasMixJSON: mixJSON, SegmentType: req.SegmentType, Notes: strings.TrimSpace(req.Notes)}
+	actor.Action = "exposure_segment.insert"
+	actor.EntityType = "exposure_segment"
+	actor.AfterSummary = fmt.Sprintf("plan=%d insert_at=%d shifted=%d type=%s depth=%.1f duration=%.1f gas=%s", planID, req.SequenceNo, len(current)-req.SequenceNo+1, req.SegmentType, req.DepthM, req.DurationMin, mixJSON)
+	if err := s.segments.Insert(ctx, &item, req.PlanVersion, actor); err != nil {
+		return nil, err
+	}
+	return s.ListByPlan(ctx, planID)
+}
+
 func (s *ExposureSegmentService) Update(ctx context.Context, id uint, req dto.UpdateExposureSegmentRequest, actor audit.Entry) (dto.ExposureSegmentResponse, error) {
 	if err := req.ValidateBusiness(); err != nil {
 		return dto.ExposureSegmentResponse{}, util.Unprocessable("INVALID_SEGMENT", err.Error(), err)
