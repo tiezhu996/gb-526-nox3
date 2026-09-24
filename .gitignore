@@ -1,0 +1,12 @@
+.env
+.DS_Store
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/tsconfig.tsbuildinfo
+coverage/
+*.log
+*.db
+*.db-shm
+*.db-wal
+backend/bin/

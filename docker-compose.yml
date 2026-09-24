@@ -1,0 +1,72 @@
+name: ${COMPOSE_PROJECT_NAME:-commercial-diving-decompression-control}
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-commercial-diving-decompression-control}-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dive_control}
+      POSTGRES_USER: ${POSTGRES_USER:-dive_control}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dive_control_dev}
+    ports:
+      - "${DB_PORT:-57526}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dive_control} -d ${POSTGRES_DB:-dive_control}"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 5s
+
+  backend:
+    build:
+      context: ./backend
+    container_name: ${COMPOSE_PROJECT_NAME:-commercial-diving-decompression-control}-backend
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      DB_DRIVER: postgres
+      DB_DSN: ${DB_DSN:-host=db user=dive_control password=dive_control_dev dbname=dive_control port=5432 sslmode=disable TimeZone=Asia/Shanghai}
+      DB_AUTO_MIGRATE: ${DB_AUTO_MIGRATE:-true}
+      JWT_SECRET: ${JWT_SECRET:-change-this-dive-control-secret-at-least-32-bytes}
+      JWT_TTL_MINUTES: ${JWT_TTL_MINUTES:-480}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:18526}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-180}
+      MODEL_VERSION: ${MODEL_VERSION:-training-compartment-v1}
+      MAX_SEGMENTS: ${MAX_SEGMENTS:-24}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SHUTDOWN_TIMEOUT_SECONDS: ${SHUTDOWN_TIMEOUT_SECONDS:-10}
+    ports:
+      - "${BACKEND_PORT:-19526}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 5s
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: ${COMPOSE_PROJECT_NAME:-commercial-diving-decompression-control}-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-18526}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-commercial-diving-decompression-control}-postgres-data
