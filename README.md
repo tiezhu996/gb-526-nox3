@@ -35,7 +35,7 @@ docker compose down -v --remove-orphans
 
 - `DiverProfile`：最小化训练资料、资格等级、默认气体假设和版本，不保存诊断性医疗记录。
 - `DivePlan`：工作地点表面压力、呼吸气体、计划时间、输入版本和完整状态流。
-- `ExposureSegment`：同一计划内唯一且连续的序号，严格校验深度、时长、上升速率、气体比例和段间连续性。
+- `ExposureSegment`：同一计划内唯一且连续的序号，严格校验深度、时长、上升速率、气体比例和段间连续性；草稿期可在任意段之前插入或末尾追加，服务端单事务完成新段入库与后续序号顺延。
 - `DecompressionAssessment`：不可覆盖的输入快照、六舱负荷曲线、风险证据、比较指数、算法版本和假设。
 - 五个业务页：训练档案、计划编排、暴露剖面、评估复核、审计轨迹；图表只消费真实 API 数据。
 - JWT/RBAC、请求 ID、结构化访问日志、panic recovery、本地限流、统一错误码、事务、乐观锁和不可普通删除的审计事件。
@@ -86,6 +86,7 @@ draft -> modeled -> pending_supervisor_review -> approved_for_training -> archiv
 | `GET` | `/api/v1/divers/:id/plans` | 档案关联方案 |
 | `GET/POST` | `/api/v1/plans` | 方案列表与创建 |
 | `GET/POST/PUT` | `/api/v1/plans/:id/segments`、`/segments/:id` | 暴露段列表、创建、更新 |
+| `POST` | `/api/v1/plans/:id/segments/insert` | 单事务在某段之前插入（或 `before_sequence_no` 为空时追加末尾），后续序号顺延 |
 | `PUT` | `/api/v1/plans/:id/segments/order` | 事务化重排并推进输入版本 |
 | `POST` | `/api/v1/plans/:id/assessments/run` | 校验并创建不可覆盖评估 |
 | `GET` | `/api/v1/assessments`、`/assessments/:id` | 结果列表与重放数据 |
@@ -94,7 +95,7 @@ draft -> modeled -> pending_supervisor_review -> approved_for_training -> archiv
 | `POST` | `/api/v1/assessments/:id/approve` | 主管人工批准训练用途 |
 | `GET` | `/api/v1/audit-events` | 主管/管理员读取不可删除审计轨迹 |
 
-统一响应包含 `data` 或 `error` 及 `request_id`。主要错误码包括 `INVALID_GAS_MIX`、`SEGMENT_SEQUENCE_CONFLICT`、`MODEL_INPUT_INVALID`、`PLAN_VERSION_CONFLICT`、`INVALID_PLAN_TRANSITION`、`AUTH_REQUIRED` 和 `FORBIDDEN`。
+统一响应包含 `data` 或 `error` 及 `request_id`。主要错误码包括 `INVALID_GAS_MIX`、`SEGMENT_SEQUENCE_CONFLICT`、`INVALID_INSERT_POSITION`、`SEGMENT_LIMIT`、`PLAN_NOT_EDITABLE`、`MODEL_INPUT_INVALID`、`PLAN_VERSION_CONFLICT`、`INVALID_PLAN_TRANSITION`、`AUTH_REQUIRED` 和 `FORBIDDEN`。插入接口在版本冲突、计划非草稿或插入位置越界时整体回滚，原顺序与输入版本保持不变并返回上述原因。
 
 ## 技术栈与目录
 

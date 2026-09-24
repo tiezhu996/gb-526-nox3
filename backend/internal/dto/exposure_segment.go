@@ -29,6 +29,17 @@ type UpdateExposureSegmentRequest struct {
 	Notes          string               `json:"notes" binding:"max=500"`
 }
 
+type InsertExposureSegmentRequest struct {
+	PlanVersion      uint                 `json:"plan_version" binding:"required,min=1"`
+	BeforeSequenceNo *int                 `json:"before_sequence_no"`
+	DepthM           float64              `json:"depth_m" binding:"gte=0,lte=120"`
+	DurationMin      float64              `json:"duration_min" binding:"required,gt=0,lte=240"`
+	AscentRateMMin   float64              `json:"ascent_rate_mmin" binding:"gte=0,lte=18"`
+	GasMix           decompression.GasMix `json:"gas_mix" binding:"required"`
+	SegmentType      string               `json:"segment_type" binding:"required,oneof=descent bottom transit ascent surface"`
+	Notes            string               `json:"notes" binding:"max=500"`
+}
+
 type ReorderExposureSegmentsRequest struct {
 	OrderedIDs []uint `json:"ordered_ids" binding:"required,min=1,dive,min=1"`
 	Version    uint   `json:"version" binding:"required,min=1"`
@@ -62,6 +73,11 @@ func (r CreateExposureSegmentRequest) ValidateBusiness() error {
 }
 
 func (r UpdateExposureSegmentRequest) ValidateBusiness() error {
+	create := CreateExposureSegmentRequest{PlanVersion: r.PlanVersion, DepthM: r.DepthM, DurationMin: r.DurationMin, AscentRateMMin: r.AscentRateMMin, GasMix: r.GasMix, SegmentType: r.SegmentType, Notes: r.Notes, SequenceNo: 1}
+	return create.ValidateBusiness()
+}
+
+func (r InsertExposureSegmentRequest) ValidateBusiness() error {
 	create := CreateExposureSegmentRequest{PlanVersion: r.PlanVersion, DepthM: r.DepthM, DurationMin: r.DurationMin, AscentRateMMin: r.AscentRateMMin, GasMix: r.GasMix, SegmentType: r.SegmentType, Notes: r.Notes, SequenceNo: 1}
 	return create.ValidateBusiness()
 }

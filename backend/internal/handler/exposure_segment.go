@@ -58,6 +58,23 @@ func (h *ExposureSegmentHandler) Create(c *gin.Context) {
 	util.Created(c, item)
 }
 
+func (h *ExposureSegmentHandler) Insert(c *gin.Context) {
+	planID, ok := util.ParamID(c)
+	if !ok {
+		return
+	}
+	var req dto.InsertExposureSegmentRequest
+	if !util.BindJSON(c, &req) {
+		return
+	}
+	items, err := h.service.Insert(c.Request.Context(), planID, req, auditActor(c))
+	if err != nil {
+		util.Fail(c, err)
+		return
+	}
+	util.OK(c, items)
+}
+
 func (h *ExposureSegmentHandler) Update(c *gin.Context) {
 	id, ok := util.ParamID(c)
 	if !ok {

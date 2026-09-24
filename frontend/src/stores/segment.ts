@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import { createSegment, listSegments, reorderSegments, updateSegment } from '@/api/segment'
+import { createSegment, insertSegment, listSegments, reorderSegments, updateSegment } from '@/api/segment'
 import { errorMessage } from '@/api/client'
-import type { CreateExposureSegment, ExposureSegment } from '@/types/segment'
+import type { CreateExposureSegment, ExposureSegment, InsertExposureSegment } from '@/types/segment'
 
 interface SegmentStore {
   planId: number | null
@@ -10,6 +10,7 @@ interface SegmentStore {
   error: string | null
   load: (planId: number) => Promise<void>
   create: (planId: number, input: CreateExposureSegment) => Promise<ExposureSegment>
+  insert: (planId: number, input: InsertExposureSegment) => Promise<ExposureSegment[]>
   update: (id: number, input: Omit<CreateExposureSegment, 'sequence_no'>) => Promise<ExposureSegment>
   reorder: (planId: number, ids: number[], version: number) => Promise<void>
 }
@@ -25,6 +26,11 @@ export const useSegmentStore = create<SegmentStore>((set) => ({
     const item = await createSegment(planId, input)
     set((state) => ({ items: [...state.items, item].sort((a, b) => a.sequence_no - b.sequence_no) }))
     return item
+  },
+  insert: async (planId, input) => {
+    const items = await insertSegment(planId, input)
+    set({ items })
+    return items
   },
   update: async (id, input) => {
     const item = await updateSegment(id, input)

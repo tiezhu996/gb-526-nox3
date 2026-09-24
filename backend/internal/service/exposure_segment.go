@@ -75,6 +75,42 @@ func (s *ExposureSegmentService) Create(ctx context.Context, planID uint, req dt
 	return dto.NewExposureSegmentResponse(item)
 }
 
+func (s *ExposureSegmentService) Insert(ctx context.Context, planID uint, req dto.InsertExposureSegmentRequest, actor audit.Entry) ([]dto.ExposureSegmentResponse, error) {
+	if err := req.ValidateBusiness(); err != nil {
+		return nil, util.Unprocessable("INVALID_SEGMENT", err.Error(), err)
+	}
+	current, err := s.segments.ListByPlan(ctx, planID)
+	if err != nil {
+		return nil, err
+	}
+	if len(current) >= s.max {
+		return nil, util.Unprocessable("SEGMENT_LIMIT", fmt.Sprintf("plan cannot exceed %d segments", s.max), nil)
+	}
+	if req.BeforeSequenceNo != nil {
+		position := *req.BeforeSequenceNo
+		if position < 1 || position > len(current)+1 {
+			return nil, util.Unprocessable("INVALID_INSERT_POSITION", fmt.Sprintf("insert position must be between 1 and %d", len(current)+1), nil)
+		}
+	}
+	mixJSON, err := decompression.EncodeGasMix(req.GasMix)
+	if err != nil {
+		return nil, util.Unprocessable("INVALID_GAS_MIX", err.Error(), err)
+	}
+	position := len(current) + 1
+	if req.BeforeSequenceNo != nil {
+		position = *req.BeforeSequenceNo
+	}
+	item := model.ExposureSegment{PlanID: planID, SequenceNo: position, DepthM: req.DepthM, DurationMin: req.DurationMin, AscentRateMMin: req.AscentRateMMin, GasMixJSON: mixJSON, SegmentType: req.SegmentType, Notes: strings.TrimSpace(req.Notes)}
+	actor.Action = "exposure_segment.insert"
+	actor.EntityType = "exposure_segment"
+	actor.BeforeSummary = fmt.Sprintf("plan=%d input_version=%d segments=%d", planID, req.PlanVersion, len(current))
+	actor.AfterSummary = fmt.Sprintf("insert_at=%d type=%s depth=%.1f duration=%.1f gas=%s", position, req.SegmentType, req.DepthM, req.DurationMin, mixJSON)
+	if err := s.segments.Insert(ctx, &item, req.PlanVersion, req.BeforeSequenceNo, actor); err != nil {
+		return nil, err
+	}
+	return s.ListByPlan(ctx, planID)
+}
+
 func (s *ExposureSegmentService) Update(ctx context.Context, id uint, req dto.UpdateExposureSegmentRequest, actor audit.Entry) (dto.ExposureSegmentResponse, error) {
 	if err := req.ValidateBusiness(); err != nil {
 		return dto.ExposureSegmentResponse{}, util.Unprocessable("INVALID_SEGMENT", err.Error(), err)

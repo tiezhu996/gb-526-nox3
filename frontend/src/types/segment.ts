@@ -26,3 +26,14 @@ export interface CreateExposureSegment {
   segment_type: SegmentType
   notes: string
 }
+
+export interface InsertExposureSegment {
+  plan_version: number
+  before_sequence_no: number | null
+  depth_m: number
+  duration_min: number
+  ascent_rate_mmin: number
+  gas_mix: GasMix
+  segment_type: SegmentType
+  notes: string
+}
